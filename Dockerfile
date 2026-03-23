@@ -6,7 +6,7 @@ WORKDIR /src
 COPY ["API_ND/API_ND.csproj", "API_ND/"]
 COPY ["BLL/BLL.csproj", "BLL/"]
 COPY ["DAL/DAL.csproj", "DAL/"]
-COPY ["Model/Model.csproj", "Model/"]
+COPY ["Models/Models.csproj", "Models/"]
 COPY ["Services/Services.csproj", "Services/"]
 
 # Thực hiện restore cho dự án chính (nó sẽ tự kéo theo các dự án phụ)
