@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -29,5 +29,10 @@
     <ProjectReference Include="..\Models\Models.csproj" />
     <ProjectReference Include="..\Services\Services.csproj" />
   </ItemGroup>
+    <ItemGroup>
+		<Content Include="Anh\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 
 </Project>
