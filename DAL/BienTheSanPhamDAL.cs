@@ -1,4 +1,5 @@
 ﻿using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 
 namespace DAL
@@ -155,108 +156,106 @@ namespace DAL
             return data;
         }
         // Thêm biến thể sản phẩm
-        public int Create(string maBienThe, int idSanPham, double giaBan,
-                          int tonKho, string maSKU, int idTrangThai)
+        public int Create(string maBienThe, int idSanPham, double giaBan, int tonKho, string maSKU, int idTrangThai)
         {
-            using var tran = _context.Database.BeginTransaction();
+            // Tạo chiến lược thực thi
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            try
+            return strategy.Execute(() =>
             {
-                var bienThe = new BienTheSanPham
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    MaBienThe = maBienThe,
-                    IdSanPham = idSanPham,
-                    GiaBan = giaBan,
-                    TonKho = tonKho,
-                    MaSKU = maSKU,
-                    IdTrangThai = idTrangThai
-                };
+                    var bienThe = new BienTheSanPham
+                    {
+                        MaBienThe = maBienThe,
+                        IdSanPham = idSanPham,
+                        GiaBan = giaBan,
+                        TonKho = tonKho,
+                        MaSKU = maSKU,
+                        IdTrangThai = idTrangThai
+                    };
 
-                _context.BienTheSanPhams.Add(bienThe);
-                _context.SaveChanges();
+                    _context.BienTheSanPhams.Add(bienThe);
+                    _context.SaveChanges();
+                    tran.Commit();
 
-                tran.Commit();
-
-                return bienThe.IdBienThe;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                    return bienThe.IdBienThe;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
         // Cập nhật biến thể sản phẩm
         public bool Update(BienTheSanPham bienThe)
         {
-            using var tran = _context.Database.BeginTransaction();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            try
+            return strategy.Execute(() =>
             {
-                var data = _context.BienTheSanPhams
-                    .FirstOrDefault(x => x.IdBienThe == bienThe.IdBienThe);
+                using var tran = _context.Database.BeginTransaction();
+                try
+                {
+                    var data = _context.BienTheSanPhams.FirstOrDefault(x => x.IdBienThe == bienThe.IdBienThe);
+                    if (data == null) return false;
 
-                if (data == null)
-                    return false;
+                    data.MaBienThe = bienThe.MaBienThe;
+                    data.IdSanPham = bienThe.IdSanPham;
+                    data.GiaBan = bienThe.GiaBan;
+                    data.TonKho = bienThe.TonKho;
+                    data.MaSKU = bienThe.MaSKU;
+                    data.IdTrangThai = bienThe.IdTrangThai;
 
-                data.MaBienThe = bienThe.MaBienThe;
-                data.IdSanPham = bienThe.IdSanPham;
-                data.GiaBan = bienThe.GiaBan;
-                data.TonKho = bienThe.TonKho;
-                data.MaSKU = bienThe.MaSKU;
-                data.IdTrangThai = bienThe.IdTrangThai;
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
         // Cập nhật giá bán (có ghi lịch sử giá)
         public bool UpdateGiaBan(int idBienThe, double giaMoi, string maLichSu)
         {
-            using var tran = _context.Database.BeginTransaction();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            try
+            return strategy.Execute(() =>
             {
-                var bienThe = _context.BienTheSanPhams
-                    .FirstOrDefault(x => x.IdBienThe == idBienThe);
-
-                if (bienThe == null)
-                    return false;
-
-                // Ghi lịch sử giá trước khi cập nhật
-                var lichSu = new LichSuGia
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    MaLichSu = maLichSu,
-                    IdBienThe = idBienThe,
-                    GiaCu = bienThe.GiaBan,
-                    GiaMoi = giaMoi
-                };
+                    var bienThe = _context.BienTheSanPhams.FirstOrDefault(x => x.IdBienThe == idBienThe);
+                    if (bienThe == null) return false;
 
-                _context.LichSuGias.Add(lichSu);
+                    var lichSu = new LichSuGia
+                    {
+                        MaLichSu = maLichSu,
+                        IdBienThe = idBienThe,
+                        GiaCu = bienThe.GiaBan,
+                        GiaMoi = giaMoi
+                    };
+                    _context.LichSuGias.Add(lichSu);
 
-                // Cập nhật giá mới
-                bienThe.GiaBan = giaMoi;
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                    bienThe.GiaBan = giaMoi;
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
-
         // Cập nhật tồn kho (cộng/trừ số lượng)
         public bool UpdateTonKho(int idBienThe, int soLuongThayDoi)
         {

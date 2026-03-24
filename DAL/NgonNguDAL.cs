@@ -1,4 +1,5 @@
 ﻿using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 
 namespace DAL
@@ -77,22 +78,38 @@ namespace DAL
         // Đặt ngôn ngữ mặc định
         public bool SetMacDinh(string maNgonNgu)
         {
-            var tatCa = _context.NgonNgus.ToList();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            var ngonNgu = tatCa.FirstOrDefault(x => x.MaNgonNgu == maNgonNgu);
-            if (ngonNgu == null)
-                return false;
+            return strategy.Execute(() =>
+            {
+                using var tran = _context.Database.BeginTransaction();
+                try
+                {
+                    var tatCa = _context.NgonNgus.ToList();
 
-            // Bỏ mặc định tất cả
-            foreach (var item in tatCa)
-                item.LaMacDinh = 0;
+                    var ngonNgu = tatCa.FirstOrDefault(x => x.MaNgonNgu == maNgonNgu);
+                    if (ngonNgu == null) return false;
 
-            // Đặt mặc định cho ngôn ngữ được chọn
-            ngonNgu.LaMacDinh = 1;
-            ngonNgu.NgayCapNhat = DateTime.Now;
+                    // Bỏ mặc định tất cả (dùng vòng lặp hoặc lệnh Update hàng loạt)
+                    foreach (var item in tatCa)
+                    {
+                        item.LaMacDinh = 0;
+                    }
 
-            _context.SaveChanges();
-            return true;
+                    // Đặt mặc định cho ngôn ngữ được chọn
+                    ngonNgu.LaMacDinh = 1;
+                    ngonNgu.NgayCapNhat = DateTime.Now;
+
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
         // Lấy ngôn ngữ mặc định

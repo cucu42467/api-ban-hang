@@ -1,4 +1,5 @@
 ﻿using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 
 namespace DAL
@@ -98,108 +99,107 @@ namespace DAL
             return data;
         }
 
-        // Thêm sản phẩm
+        // --- Thêm sản phẩm (ĐÃ SỬA THEO CÁCH 2) ---
         public int CreateSanPham(string maSanPham, int idDanhMuc, string tenSanPham, string moTa)
         {
-            using var tran = _context.Database.BeginTransaction();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            try
+            return strategy.Execute(() =>
             {
-                var sanPham = new SanPham
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    MaSanPham = maSanPham,
-                    IdDanhMuc = idDanhMuc,
-                    IdTrangThai = 1
-                };
-
-                _context.SanPhams.Add(sanPham);
-                _context.SaveChanges();
-
-                int idSanPham = sanPham.IdSanPham;
-
-                // lấy tất cả ngôn ngữ
-                var languages = _context.NgonNgus.ToList();
-
-                foreach (var lang in languages)
-                {
-                    string ten = tenSanPham;
-                    string mota = moTa;
-
-                    if (lang.MaNgonNgu != "vi")
+                    var sanPham = new SanPham
                     {
-                        ten = Translate(tenSanPham, lang.MaNgonNgu);
-                        mota = Translate(moTa, lang.MaNgonNgu);
-                    }
-
-                    var spLang = new SanPhamLang
-                    {
-                        IdSanPham = idSanPham,
-                        MaNgonNgu = lang.MaNgonNgu,
-                        TenSanPham = ten,
-                        MoTa = mota
+                        MaSanPham = maSanPham,
+                        IdDanhMuc = idDanhMuc,
+                        IdTrangThai = 1
                     };
 
-                    _context.SanPhamLangs.Add(spLang);
+                    _context.SanPhams.Add(sanPham);
+                    _context.SaveChanges();
+
+                    int idSanPham = sanPham.IdSanPham;
+                    var languages = _context.NgonNgus.ToList();
+
+                    foreach (var lang in languages)
+                    {
+                        string ten = tenSanPham;
+                        string mota = moTa;
+
+                        if (lang.MaNgonNgu != "vi")
+                        {
+                            ten = Translate(tenSanPham, lang.MaNgonNgu);
+                            mota = Translate(moTa, lang.MaNgonNgu);
+                        }
+
+                        _context.SanPhamLangs.Add(new SanPhamLang
+                        {
+                            IdSanPham = idSanPham,
+                            MaNgonNgu = lang.MaNgonNgu,
+                            TenSanPham = ten,
+                            MoTa = mota
+                        });
+                    }
+
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return idSanPham;
                 }
-
-                _context.SaveChanges();
-
-                tran.Commit();
-
-                return idSanPham;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
-        // Cập nhật thông tin sản phẩm
+        // --- Cập nhật sản phẩm (ĐÃ SỬA THEO CÁCH 2) ---
         public bool Update(SanPham sanPham, string tenSanPham, string moTa)
         {
-            using var tran = _context.Database.BeginTransaction();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            try
+            return strategy.Execute(() =>
             {
-                // cập nhật bảng SanPham
-                var data = _context.SanPhams
-                    .FirstOrDefault(x => x.IdSanPham == sanPham.IdSanPham);
-
-                if (data == null)
-                    return false;
-
-                data.MaSanPham = sanPham.MaSanPham;
-                data.IdDanhMuc = sanPham.IdDanhMuc;
-                data.IdTrangThai = sanPham.IdTrangThai;
-
-                // cập nhật bảng SanPham_Lang
-                var languages = _context.NgonNgus.ToList();
-
-                foreach (var lang in languages)
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    var spLang = _context.SanPhamLangs
-                        .FirstOrDefault(x => x.IdSanPham == sanPham.IdSanPham
-                                          && x.MaNgonNgu == lang.MaNgonNgu);
+                    var data = _context.SanPhams
+                        .FirstOrDefault(x => x.IdSanPham == sanPham.IdSanPham);
 
-                    if (spLang != null)
+                    if (data == null) return false;
+
+                    data.MaSanPham = sanPham.MaSanPham;
+                    data.IdDanhMuc = sanPham.IdDanhMuc;
+                    data.IdTrangThai = sanPham.IdTrangThai;
+
+                    var languages = _context.NgonNgus.ToList();
+                    foreach (var lang in languages)
                     {
-                        spLang.TenSanPham = tenSanPham;
-                        spLang.MoTa = moTa;
+                        var spLang = _context.SanPhamLangs
+                            .FirstOrDefault(x => x.IdSanPham == sanPham.IdSanPham
+                                              && x.MaNgonNgu == lang.MaNgonNgu);
+
+                        if (spLang != null)
+                        {
+                            // Lưu ý: Thường chỉ cập nhật ngôn ngữ hiện tại hoặc cập nhật tất cả tùy logic của bạn
+                            spLang.TenSanPham = tenSanPham;
+                            spLang.MoTa = moTa;
+                        }
                     }
+
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
                 }
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
+
         // Cập nhật trạng thái (soft delete)
         public bool UpdateTrangThai(int id, int trangThai)
         {

@@ -1,4 +1,5 @@
 ﻿using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 
 namespace DAL
@@ -74,96 +75,99 @@ namespace DAL
         // Thêm danh mục
         public int Create(string maDanhMuc, string tenDanhMuc, string moTa)
         {
-            using var tran = _context.Database.BeginTransaction();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            try
+            return strategy.Execute(() =>
             {
-                var danhMuc = new DanhMuc
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    MaDanhMuc = maDanhMuc,
-                    IdTrangThai = 1
-                };
-
-                _context.DanhMucs.Add(danhMuc);
-                _context.SaveChanges();
-
-                int idDanhMuc = danhMuc.IdDanhMuc;
-
-                var languages = _context.NgonNgus.ToList();
-
-                foreach (var lang in languages)
-                {
-                    string ten = tenDanhMuc;
-                    string mota = moTa;
-
-                    if (lang.MaNgonNgu != "vi")
+                    var danhMuc = new DanhMuc
                     {
-                        ten = Translate(tenDanhMuc, lang.MaNgonNgu);
-                        mota = Translate(moTa, lang.MaNgonNgu);
+                        MaDanhMuc = maDanhMuc,
+                        IdTrangThai = 1
+                    };
+
+                    _context.DanhMucs.Add(danhMuc);
+                    _context.SaveChanges();
+
+                    int idDanhMuc = danhMuc.IdDanhMuc;
+                    var languages = _context.NgonNgus.ToList();
+
+                    foreach (var lang in languages)
+                    {
+                        string ten = tenDanhMuc;
+                        string mota = moTa;
+
+                        if (lang.MaNgonNgu != "vi")
+                        {
+                            ten = Translate(tenDanhMuc, lang.MaNgonNgu);
+                            mota = Translate(moTa, lang.MaNgonNgu);
+                        }
+
+                        _context.DanhMucLangs.Add(new DanhMucLang
+                        {
+                            IdDanhMuc = idDanhMuc,
+                            MaNgonNgu = lang.MaNgonNgu,
+                            TenDanhMuc = ten,
+                            MoTa = mota
+                        });
                     }
 
-                    _context.DanhMucLangs.Add(new DanhMucLang
-                    {
-                        IdDanhMuc = idDanhMuc,
-                        MaNgonNgu = lang.MaNgonNgu,
-                        TenDanhMuc = ten,
-                        MoTa = mota
-                    });
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return idDanhMuc;
                 }
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return idDanhMuc;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
         // Cập nhật danh mục
         public bool Update(DanhMuc danhMuc, string tenDanhMuc, string moTa)
         {
-            using var tran = _context.Database.BeginTransaction();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            try
+            return strategy.Execute(() =>
             {
-                var data = _context.DanhMucs
-                    .FirstOrDefault(x => x.IdDanhMuc == danhMuc.IdDanhMuc);
-
-                if (data == null)
-                    return false;
-
-                data.MaDanhMuc = danhMuc.MaDanhMuc;
-                data.IdTrangThai = danhMuc.IdTrangThai;
-
-                var languages = _context.NgonNgus.ToList();
-
-                foreach (var lang in languages)
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    var dmLang = _context.DanhMucLangs
-                        .FirstOrDefault(x => x.IdDanhMuc == danhMuc.IdDanhMuc
-                                          && x.MaNgonNgu == lang.MaNgonNgu);
+                    var data = _context.DanhMucs
+                        .FirstOrDefault(x => x.IdDanhMuc == danhMuc.IdDanhMuc);
 
-                    if (dmLang != null)
+                    if (data == null) return false;
+
+                    data.MaDanhMuc = danhMuc.MaDanhMuc;
+                    data.IdTrangThai = danhMuc.IdTrangThai;
+
+                    var languages = _context.NgonNgus.ToList();
+                    foreach (var lang in languages)
                     {
-                        dmLang.TenDanhMuc = tenDanhMuc;
-                        dmLang.MoTa = moTa;
+                        var dmLang = _context.DanhMucLangs
+                            .FirstOrDefault(x => x.IdDanhMuc == danhMuc.IdDanhMuc
+                                              && x.MaNgonNgu == lang.MaNgonNgu);
+
+                        if (dmLang != null)
+                        {
+                            dmLang.TenDanhMuc = tenDanhMuc;
+                            dmLang.MoTa = moTa;
+                        }
                     }
+
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
                 }
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
         // Cập nhật trạng thái (soft delete)

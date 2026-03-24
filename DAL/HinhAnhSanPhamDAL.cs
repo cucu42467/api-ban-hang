@@ -1,4 +1,5 @@
 ﻿using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 
 namespace DAL
@@ -71,33 +72,41 @@ namespace DAL
         // Đặt ảnh chính
         public bool SetAnhChinh(int idHinhAnh, int idBienThe)
         {
-            using var tran = _context.Database.BeginTransaction();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return strategy.Execute(() =>
             {
-                // Bỏ ảnh chính cũ
-                var danhSach = _context.HinhAnhSanPhams
-                    .Where(x => x.IdBienThe == idBienThe)
-                    .ToList();
+                using var tran = _context.Database.BeginTransaction();
+                try
+                {
+                    // 1. Lấy danh sách ảnh của biến thể
+                    var danhSach = _context.HinhAnhSanPhams
+                        .Where(x => x.IdBienThe == idBienThe)
+                        .ToList();
 
-                foreach (var h in danhSach)
-                    h.LaAnhChinh = false;
+                    // 2. Bỏ trạng thái ảnh chính của toàn bộ ảnh hiện có
+                    foreach (var h in danhSach)
+                    {
+                        h.LaAnhChinh = false;
+                    }
 
-                // Set ảnh chính mới
-                var anhMoi = danhSach.FirstOrDefault(x => x.IdHinhAnh == idHinhAnh);
-                if (anhMoi == null) return false;
+                    // 3. Tìm ảnh được chọn để set làm ảnh chính mới
+                    var anhMoi = danhSach.FirstOrDefault(x => x.IdHinhAnh == idHinhAnh);
+                    if (anhMoi == null) return false;
 
-                anhMoi.LaAnhChinh = true;
+                    anhMoi.LaAnhChinh = true;
 
-                _context.SaveChanges();
-                tran.Commit();
+                    _context.SaveChanges();
+                    tran.Commit();
 
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                    return true;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
     }
 }

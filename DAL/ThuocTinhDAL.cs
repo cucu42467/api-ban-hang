@@ -1,4 +1,5 @@
 ﻿using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 
 namespace DAL
@@ -120,76 +121,78 @@ namespace DAL
             return dto;
         }
 
+        // --- Hàm Create (Đã thêm ExecutionStrategy) ---
         public int Create(string maThuocTinh, string tenThuocTinh)
         {
-            using var tran = _context.Database.BeginTransaction();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return strategy.Execute(() =>
             {
-                var thuocTinh = new ThuocTinh
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    MaThuocTinh = maThuocTinh
-                };
+                    var thuocTinh = new ThuocTinh { MaThuocTinh = maThuocTinh };
+                    _context.ThuocTinhs.Add(thuocTinh);
+                    _context.SaveChanges();
 
-                _context.ThuocTinhs.Add(thuocTinh);
-                _context.SaveChanges();
+                    int id = thuocTinh.IdThuocTinh;
+                    var languages = _context.NgonNgus.ToList();
 
-                int id = thuocTinh.IdThuocTinh;
-
-                var languages = _context.NgonNgus.ToList();
-
-                foreach (var lang in languages)
-                {
-                    _context.ThuocTinhLangs.Add(new ThuocTinhLang
+                    foreach (var lang in languages)
                     {
-                        IdThuocTinh = id,
-                        MaNgonNgu = lang.MaNgonNgu,
-                        TenThuocTinh = lang.MaNgonNgu == "vi"
-                            ? tenThuocTinh
-                            : tenThuocTinh + "_" + lang.MaNgonNgu
-                    });
+                        _context.ThuocTinhLangs.Add(new ThuocTinhLang
+                        {
+                            IdThuocTinh = id,
+                            MaNgonNgu = lang.MaNgonNgu,
+                            TenThuocTinh = lang.MaNgonNgu == "vi"
+                                ? tenThuocTinh
+                                : tenThuocTinh + "_" + lang.MaNgonNgu
+                        });
+                    }
+
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return id;
                 }
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return id;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
+        // --- Hàm Update (Đã thêm ExecutionStrategy) ---
         public bool Update(int idThuocTinh, string maThuocTinh, string tenThuocTinh)
         {
-            using var tran = _context.Database.BeginTransaction();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return strategy.Execute(() =>
             {
-                var data = _context.ThuocTinhs
-                    .FirstOrDefault(x => x.IdThuocTinh == idThuocTinh);
+                using var tran = _context.Database.BeginTransaction();
+                try
+                {
+                    var data = _context.ThuocTinhs.FirstOrDefault(x => x.IdThuocTinh == idThuocTinh);
+                    if (data == null) return false;
 
-                if (data == null) return false;
+                    data.MaThuocTinh = maThuocTinh;
 
-                data.MaThuocTinh = maThuocTinh;
+                    var langVi = _context.ThuocTinhLangs
+                        .FirstOrDefault(x => x.IdThuocTinh == idThuocTinh && x.MaNgonNgu == "vi");
 
-                var langVi = _context.ThuocTinhLangs
-                    .FirstOrDefault(x => x.IdThuocTinh == idThuocTinh
-                                      && x.MaNgonNgu == "vi");
+                    if (langVi != null)
+                        langVi.TenThuocTinh = tenThuocTinh;
 
-                if (langVi != null)
-                    langVi.TenThuocTinh = tenThuocTinh;
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
     }
 }

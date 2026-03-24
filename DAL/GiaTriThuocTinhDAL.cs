@@ -1,4 +1,5 @@
 ﻿using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 
 namespace DAL
@@ -75,111 +76,123 @@ namespace DAL
 
         public int Create(string maGiaTri, int idThuocTinh, string giaTri)
         {
-            using var tran = _context.Database.BeginTransaction();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return strategy.Execute(() =>
             {
-                var giaTriMoi = new GiaTriThuocTinh
+                using var tran = _context.Database.BeginTransaction();
+                try
                 {
-                    MaGiaTri = maGiaTri,
-                    IdThuocTinh = idThuocTinh
-                };
-
-                _context.GiaTriThuocTinhs.Add(giaTriMoi);
-                _context.SaveChanges();
-
-                int id = giaTriMoi.IdGiaTri;
-
-                var languages = _context.NgonNgus.ToList();
-
-                foreach (var lang in languages)
-                {
-                    _context.GiaTriThuocTinhLangs.Add(new GiaTriThuocTinhLang
+                    var giaTriMoi = new GiaTriThuocTinh
                     {
-                        IdGiaTri = id,
-                        MaNgonNgu = lang.MaNgonNgu,
-                        GiaTri = lang.MaNgonNgu == "vi"
-                            ? giaTri
-                            : giaTri + "_" + lang.MaNgonNgu
-                    });
+                        MaGiaTri = maGiaTri,
+                        IdThuocTinh = idThuocTinh
+                    };
+
+                    _context.GiaTriThuocTinhs.Add(giaTriMoi);
+                    _context.SaveChanges();
+
+                    int id = giaTriMoi.IdGiaTri;
+                    var languages = _context.NgonNgus.ToList();
+
+                    foreach (var lang in languages)
+                    {
+                        _context.GiaTriThuocTinhLangs.Add(new GiaTriThuocTinhLang
+                        {
+                            IdGiaTri = id,
+                            MaNgonNgu = lang.MaNgonNgu,
+                            GiaTri = lang.MaNgonNgu == "vi"
+                                ? giaTri
+                                : giaTri + "_" + lang.MaNgonNgu
+                        });
+                    }
+
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return id;
                 }
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return id;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
         public bool Update(int idGiaTri, string maGiaTri, string giaTri)
         {
-            using var tran = _context.Database.BeginTransaction();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return strategy.Execute(() =>
             {
-                var data = _context.GiaTriThuocTinhs
-                    .FirstOrDefault(x => x.IdGiaTri == idGiaTri);
+                using var tran = _context.Database.BeginTransaction();
+                try
+                {
+                    var data = _context.GiaTriThuocTinhs
+                        .FirstOrDefault(x => x.IdGiaTri == idGiaTri);
 
-                if (data == null) return false;
+                    if (data == null) return false;
 
-                data.MaGiaTri = maGiaTri;
+                    data.MaGiaTri = maGiaTri;
 
-                var langVi = _context.GiaTriThuocTinhLangs
-                    .FirstOrDefault(x => x.IdGiaTri == idGiaTri
-                                      && x.MaNgonNgu == "vi");
+                    var langVi = _context.GiaTriThuocTinhLangs
+                        .FirstOrDefault(x => x.IdGiaTri == idGiaTri
+                                          && x.MaNgonNgu == "vi");
 
-                if (langVi != null)
-                    langVi.GiaTri = giaTri;
+                    if (langVi != null)
+                        langVi.GiaTri = giaTri;
 
-                _context.SaveChanges();
-                tran.Commit();
-
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
 
         public bool Delete(int idGiaTri)
         {
-            using var tran = _context.Database.BeginTransaction();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return strategy.Execute(() =>
             {
-                var langs = _context.GiaTriThuocTinhLangs
-                    .Where(x => x.IdGiaTri == idGiaTri)
-                    .ToList();
+                using var tran = _context.Database.BeginTransaction();
+                try
+                {
+                    // 1. Xóa trong bảng Langs
+                    var langs = _context.GiaTriThuocTinhLangs
+                        .Where(x => x.IdGiaTri == idGiaTri)
+                        .ToList();
+                    _context.GiaTriThuocTinhLangs.RemoveRange(langs);
 
-                _context.GiaTriThuocTinhLangs.RemoveRange(langs);
+                    // 2. Xóa trong bảng Mappings (Liên kết biến thể)
+                    var mappings = _context.BienTheThuocTinhs
+                        .Where(x => x.IdGiaTri == idGiaTri)
+                        .ToList();
+                    _context.BienTheThuocTinhs.RemoveRange(mappings);
 
-                var mappings = _context.BienTheThuocTinhs
-                    .Where(x => x.IdGiaTri == idGiaTri)
-                    .ToList();
+                    // 3. Xóa bảng chính
+                    var data = _context.GiaTriThuocTinhs
+                        .FirstOrDefault(x => x.IdGiaTri == idGiaTri);
 
-                _context.BienTheThuocTinhs.RemoveRange(mappings);
+                    if (data == null) return false;
 
-                var data = _context.GiaTriThuocTinhs
-                    .FirstOrDefault(x => x.IdGiaTri == idGiaTri);
+                    _context.GiaTriThuocTinhs.Remove(data);
 
-                if (data == null) return false;
-
-                _context.GiaTriThuocTinhs.Remove(data);
-
-                _context.SaveChanges();
-                tran.Commit();
-
-                return true;
-            }
-            catch
-            {
-                tran.Rollback();
-                throw;
-            }
+                    _context.SaveChanges();
+                    tran.Commit();
+                    return true;
+                }
+                catch
+                {
+                    tran.Rollback();
+                    throw;
+                }
+            });
         }
     }
 }
