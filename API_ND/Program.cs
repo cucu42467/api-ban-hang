@@ -1,83 +1,84 @@
-using BLL;
+﻿using BLL;
 using BLL.Interfaces;
 using DAL;
 using DAL.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Services;
+using Microsoft.Extensions.FileProviders;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- C?U H�NH CHO PH�P TRUY C?P T? B�N NGO�I (CORS) ---
+// --- 1. CẤU HÌNH CORS (GIỮ NGUYÊN) ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()   // Cho ph�p t?t c? c�c ngu?n (IP kh�c nhau)
-              .AllowAnyMethod()   // Cho ph�p t?t c? c�c ph??ng th?c (GET, POST, PUT, DELETE)
-              .AllowAnyHeader();  // Cho ph�p t?t c? c�c Header
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
+// Render cần lắng nghe trên 0.0.0.0 và Port 10000
 builder.WebHost.UseUrls("http://0.0.0.0:10000");
 
+// --- 2. CẤU HÌNH ĐƯỜNG DẪN DATABASE & ẢNH ---
+// Sử dụng ContentRootPath để tự động nhận diện thư mục gốc của App dù ở Local hay Render
+string rootPath = builder.Environment.ContentRootPath;
+string dbPath = Path.Combine(rootPath, "SQL.db");
+string anhPath = Path.Combine(rootPath, "Anh");
 
-// 1. L?y ???ng d?n c?a th? m?c API_ND
-string apiPath = builder.Environment.ContentRootPath;
+// Tạo thư mục Anh nếu chưa có để tránh lỗi vật lý
+if (!Directory.Exists(anhPath)) Directory.CreateDirectory(anhPath);
 
-// 2. L�i l?i 3 c?p: API_ND -> BE -> BE -> G?c (App mua b�n ?? n?i b?)
-// Sau ?� m?i ?i v�o DATA/SQL.db
-string dbPath = Path.Combine(builder.Environment.ContentRootPath, "SQL.db");// ? TH�M D�NG N�Y
-string anhPath = Path.Combine(builder.Environment.ContentRootPath, "Anh");
+Console.WriteLine($"[DEPLOY CHECK] Database Path: {dbPath}");
 
-// In ra ?? b?n ki?m tra xem n� c� hi?n ?�ng: D:\Ph�t tri?n\App mua b�n ?? n?i b?\DATA\SQL.db kh�ng
-Console.WriteLine("---------------------------------------------------------");
-Console.WriteLine($"[DATABASE CHECK] ???ng d?n th?c t?: {dbPath}");
-Console.WriteLine("---------------------------------------------------------");
-
+// Lấy ConnectionString từ appsettings.json
 builder.Services.AddDbContext<DatabaseContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection"))
 );
 
+// --- 3. ĐĂNG KÝ SERVICES (DI) ---
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 builder.Services.AddScoped<ISanPhamDAL, SanPhamDAL>();
 builder.Services.AddScoped<ISanPhamBLL, SanPhamBLL>();
 builder.Services.AddScoped<INgonNguDAL, NgonNguDAL>();
 builder.Services.AddScoped<INgonNguBLL, NgonNguBLL>();
 builder.Services.AddScoped<IBienTheSanPhamDAL, BienTheSanPhamDAL>();
-builder.Services.AddScoped<IBienTheSanPhamBLL,BienTheSanPhamBLL>();
+builder.Services.AddScoped<IBienTheSanPhamBLL, BienTheSanPhamBLL>();
 builder.Services.AddHttpClient<IExchangeRateService, ExchangeRateService>();
-builder.Services.AddScoped<IDanhMucBLL,DanhMucBLL>();
-builder.Services.AddScoped<IDanhMucDAL,DanhMucDAL>();
-
+builder.Services.AddScoped<IDanhMucBLL, DanhMucBLL>();
+builder.Services.AddScoped<IDanhMucDAL, DanhMucDAL>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// --- 4. SỬA SWAGGER ĐỂ CHẠY Ở MỌI MÔI TRƯỜNG ---
+// Xóa hoặc comment dòng check Environment.IsDevelopment()
+// Để dù là Production (Render) thì vẫn vào được giao diện Swagger để test
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
+    c.RoutePrefix = string.Empty; // Truy cập trực tiếp bằng https://api-ban-hang-3.onrender.com/
+});
 
-app.UseHttpsRedirection();
+// --- 5. MIDDLEWARES ---
+// app.UseHttpsRedirection(); // Trên Render thường dùng HTTP nội bộ, có thể tắt nếu lỗi Redirect
 
 app.UseCors("AllowAll");
 
-// ? TH�M ?O?N N�Y
-if (!Directory.Exists(anhPath))
-    Directory.CreateDirectory(anhPath);
-
+// Cấu hình phục vụ file tĩnh (Ảnh)
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(anhPath),
-    RequestPath = ""
+    FileProvider = new PhysicalFileProvider(anhPath),
+    RequestPath = "/Anh" // Truy cập ảnh qua: domain.com/Anh/ten-file.jpg
 });
 
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
