@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Services;
 using Microsoft.Extensions.FileProviders;
 using System.IO;
+using API_ND.Hubs; // 1. Đảm bảo bạn đã tạo folder Hubs và file ProductHub.cs
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,18 +23,25 @@ builder.Services.AddDbContext<DatabaseContext>(options =>
     )
 );
 
-// --- 2. CẤU HÌNH CORS (CHO PHÉP APP REACT NATIVE KẾT NỐI) ---
+// --- 2. CẤU HÌNH SIGNALR ---
+builder.Services.AddSignalR(); // Đăng ký dịch vụ SignalR
+
+// --- 3. CẤU HÌNH CORS (CẬP NHẬT CHO SIGNALR) ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        // Khi dùng SignalR với .withAutomaticReconnect() ở FE, 
+        // tốt nhất nên cho phép Credentials và chỉ định Origin cụ thể nếu cần.
+        // Nhưng để đồ án chạy thông suốt, mình để AllowAnyHeader/Method.
+        policy.SetIsOriginAllowed(_ => true) // Cho phép tất cả các nguồn (Origin)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); // BẮT BUỘC phải có dòng này cho SignalR
     });
 });
 
-// --- 3. ĐĂNG KÝ SERVICES (DI) ---
+// --- 4. ĐĂNG KÝ SERVICES (DI) ---
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -50,7 +58,7 @@ builder.Services.AddScoped<IDanhMucDAL, DanhMucDAL>();
 
 var app = builder.Build();
 
-// --- 4. CẤU HÌNH SWAGGER ---
+// --- 5. CẤU HÌNH SWAGGER ---
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -58,17 +66,11 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty;
 });
 
-// --- 5. XỬ LÝ FILE TĨNH (THƯ MỤC ANH) ---
-// Sử dụng GetFullPath để tránh sai lệch đường dẫn trên Linux
+// --- 6. XỬ LÝ FILE TĨNH (THƯ MỤC ANH) ---
 string anhPath = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "Anh"));
-
-// Log để debug trên Render (Hoàng Anh xem trong mục Logs của Render nhé)
-Console.WriteLine($"[DEBUG] Root Path: {app.Environment.ContentRootPath}");
-Console.WriteLine($"[DEBUG] Anh Path: {anhPath}");
 
 if (!Directory.Exists(anhPath))
 {
-    Console.WriteLine("[WARNING] Thu muc 'Anh' khong ton tai. Dang tao moi...");
     Directory.CreateDirectory(anhPath);
 }
 
@@ -78,18 +80,21 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/Anh",
     OnPrepareResponse = ctx =>
     {
-        // Thêm Header để trình duyệt/App cache ảnh, đỡ tốn băng thông Render
         ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=604800");
     }
 });
 
-// Hỗ trợ file tĩnh mặc định (nếu có dùng wwwroot)
 app.UseStaticFiles();
 
-// --- 6. MIDDLEWARES & ROUTING ---
-app.UseHttpsRedirection(); // Ép dùng HTTPS cho an toàn (Render hỗ trợ sẵn)
-app.UseCors("AllowAll");
+// --- 7. MIDDLEWARES & ROUTING ---
+app.UseCors("AllowAll"); // Phải đặt trước HttpsRedirection và Map
+// app.UseHttpsRedirection(); // Nếu chạy trên Render, Render đã lo HTTPS, có thể tắt dòng này để tránh lỗi Port
 app.UseAuthorization();
+
 app.MapControllers();
+
+// --- 8. MAP SIGNALR HUB ---
+// Địa chỉ kết nối sẽ là: https://api-ban-hang-4.onrender.com/productHub
+app.MapHub<ProductHub>("/productHub");
 
 app.Run();

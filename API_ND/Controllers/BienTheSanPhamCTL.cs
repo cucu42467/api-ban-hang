@@ -1,6 +1,8 @@
 ﻿using BLL.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Models;
+using Microsoft.AspNetCore.SignalR; // 1. Thêm namespace SignalR
+using API_ND.Hubs; // 2. Thêm namespace Hub của bạn
 
 namespace API_ND.Controllers
 {
@@ -9,10 +11,12 @@ namespace API_ND.Controllers
     public class BienTheSanPhamCTL : ControllerBase
     {
         private readonly IBienTheSanPhamBLL _bienTheSanPhamBLL;
+        private readonly IHubContext<ProductHub> _hubContext; // 3. Khai báo HubContext
 
-        public BienTheSanPhamCTL(IBienTheSanPhamBLL bienTheSanPhamBLL)
+        public BienTheSanPhamCTL(IBienTheSanPhamBLL bienTheSanPhamBLL, IHubContext<ProductHub> hubContext)
         {
             _bienTheSanPhamBLL = bienTheSanPhamBLL;
+            _hubContext = hubContext; // 4. Tiêm Hub vào Controller
         }
 
         // GET: api/BienTheSanPham?lang=vi
@@ -97,7 +101,7 @@ namespace API_ND.Controllers
 
         // PUT: api/BienTheSanPham/5
         [HttpPut("{id}")]
-        public IActionResult Update(int id, [FromBody] BienTheSanPham request)
+        public async Task<IActionResult> Update(int id, [FromBody] BienTheSanPham request)
         {
             try
             {
@@ -105,6 +109,13 @@ namespace API_ND.Controllers
                     return BadRequest(new { message = "Id không khớp." });
 
                 bool result = _bienTheSanPhamBLL.Update(request);
+
+                if (result)
+                {
+                    // Phát tín hiệu cập nhật toàn bộ thông tin biến thể
+                    await _hubContext.Clients.All.SendAsync("ReceiveProductUpdate", request.IdBienThe, request);
+                }
+
                 return Ok(new { message = "Cập nhật biến thể thành công.", result });
             }
             catch (ArgumentException ex)
@@ -119,11 +130,18 @@ namespace API_ND.Controllers
 
         // PATCH: api/BienTheSanPham/5/GiaBan
         [HttpPatch("{id}/GiaBan")]
-        public IActionResult UpdateGiaBan(int id, [FromBody] UpdateGiaBanRequest request)
+        public async Task<IActionResult> UpdateGiaBan(int id, [FromBody] UpdateGiaBanRequest request)
         {
             try
             {
                 bool result = _bienTheSanPhamBLL.UpdateGiaBan(id, request.GiaMoi);
+
+                if (result)
+                {
+                    // 5. PHÁT TÍN HIỆU THAY ĐỔI GIÁ
+                    await _hubContext.Clients.All.SendAsync("ReceivePriceUpdate", id, request.GiaMoi);
+                }
+
                 return Ok(new { message = "Cập nhật giá bán thành công.", result });
             }
             catch (ArgumentException ex)
@@ -138,11 +156,20 @@ namespace API_ND.Controllers
 
         // PATCH: api/BienTheSanPham/5/TonKho
         [HttpPatch("{id}/TonKho")]
-        public IActionResult UpdateTonKho(int id, [FromBody] UpdateTonKhoRequest request)
+        public async Task<IActionResult> UpdateTonKho(int id, [FromBody] UpdateTonKhoRequest request)
         {
             try
             {
                 bool result = _bienTheSanPhamBLL.UpdateTonKho(id, request.SoLuongThayDoi);
+
+                if (result)
+                {
+                    // 6. PHÁT TÍN HIỆU THAY ĐỔI TỒN KHO
+                    // Ở đây bạn cần lấy ra số lượng tồn kho mới để gửi đi, 
+                    // hoặc chỉ gửi ID để phía FE tự gọi lại API lấy số mới.
+                    await _hubContext.Clients.All.SendAsync("ReceiveStockUpdate", id, request.SoLuongThayDoi);
+                }
+
                 return Ok(new { message = "Cập nhật tồn kho thành công.", result });
             }
             catch (ArgumentException ex)
@@ -161,11 +188,17 @@ namespace API_ND.Controllers
 
         // PATCH: api/BienTheSanPham/5/TrangThai
         [HttpPatch("{id}/TrangThai")]
-        public IActionResult UpdateTrangThai(int id, [FromBody] UpdateTrangThaiRequest request)
+        public async Task<IActionResult> UpdateTrangThai(int id, [FromBody] UpdateTrangThaiRequest request)
         {
             try
             {
                 bool result = _bienTheSanPhamBLL.UpdateTrangThai(id, request.TrangThai);
+
+                if (result)
+                {
+                    await _hubContext.Clients.All.SendAsync("ReceiveStatusUpdate", id, request.TrangThai);
+                }
+
                 return Ok(new { message = "Cập nhật trạng thái thành công.", result });
             }
             catch (ArgumentException ex)
