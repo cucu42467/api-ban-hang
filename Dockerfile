@@ -28,6 +28,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
+# --- THÊM DÒNG NÀY ĐỂ CHẮC CHẮN 100% ẢNH ĐƯỢC ĐƯA VÀO ---
+# Copy thư mục Anh từ Stage build (hoặc từ context hiện tại) vào thư mục chạy
+COPY Anh/ ./Anh/
+
 # Render thường sử dụng port 10000 hoặc tùy biến theo biến môi trường PORT
 ENV ASPNETCORE_URLS=http://+:10000
 EXPOSE 10000
