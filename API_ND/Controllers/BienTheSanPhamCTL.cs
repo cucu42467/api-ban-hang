@@ -140,6 +140,8 @@ namespace API_ND.Controllers
                 {
                     // Sửa "ReceivePriceUpdate" thành "PriceChanged" để khớp với index.tsx
                     // Gửi kèm object có chứa MaSanPham (nếu có thể) hoặc ID để FE xử lý
+                    Console.WriteLine("🔥 Sending PriceChanged");
+
                     await _hubContext.Clients.All.SendAsync("PriceChanged", new
                     {
                         idBienThe = id,
