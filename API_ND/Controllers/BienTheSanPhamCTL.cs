@@ -138,9 +138,15 @@ namespace API_ND.Controllers
 
                 if (result)
                 {
-                    // 5. PHÁT TÍN HIỆU THAY ĐỔI GIÁ
-                    await _hubContext.Clients.All.SendAsync("ReceivePriceUpdate", id, request.GiaMoi);
+                    // Sửa "ReceivePriceUpdate" thành "PriceChanged" để khớp với index.tsx
+                    // Gửi kèm object có chứa MaSanPham (nếu có thể) hoặc ID để FE xử lý
+                    await _hubContext.Clients.All.SendAsync("PriceChanged", new
+                    {
+                        idBienThe = id,
+                        newPrice = request.GiaMoi
+                    });
                 }
+
 
                 return Ok(new { message = "Cập nhật giá bán thành công.", result });
             }
@@ -164,10 +170,11 @@ namespace API_ND.Controllers
 
                 if (result)
                 {
-                    // 6. PHÁT TÍN HIỆU THAY ĐỔI TỒN KHO
-                    // Ở đây bạn cần lấy ra số lượng tồn kho mới để gửi đi, 
-                    // hoặc chỉ gửi ID để phía FE tự gọi lại API lấy số mới.
-                    await _hubContext.Clients.All.SendAsync("ReceiveStockUpdate", id, request.SoLuongThayDoi);
+                    // Sửa "ReceiveStockUpdate" thành "StockChanged"
+                    await _hubContext.Clients.All.SendAsync("StockChanged", new
+                    {
+                        idBienThe = id
+                    });
                 }
 
                 return Ok(new { message = "Cập nhật tồn kho thành công.", result });
