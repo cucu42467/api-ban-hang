@@ -12,7 +12,7 @@ namespace Models
         public int IdBienThe { get; set; }
         public double? GiaCu { get; set; }
         public double? GiaMoi { get; set; }
-        public string NgayThayDoi { get; set; }
+        public DateTime NgayThayDoi { get; set; }
     }
 
     public class LichSuGiaDTO
@@ -22,6 +22,6 @@ namespace Models
         public int IdBienThe { get; set; }
         public double? GiaCu { get; set; }
         public double? GiaMoi { get; set; }
-        public string NgayThayDoi { get; set; }
+        public DateTime NgayThayDoi { get; set; }
     }
 }

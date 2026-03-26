@@ -55,6 +55,8 @@ builder.Services.AddScoped<IBienTheSanPhamBLL, BienTheSanPhamBLL>();
 builder.Services.AddHttpClient<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<IDanhMucBLL, DanhMucBLL>();
 builder.Services.AddScoped<IDanhMucDAL, DanhMucDAL>();
+builder.Services.AddScoped<ILichSuGiaBLL, LichSuGiaBLL>();
+builder.Services.AddScoped<ILichSuGiaDAL, LichSuGiaDAL>();
 
 var app = builder.Build();
 

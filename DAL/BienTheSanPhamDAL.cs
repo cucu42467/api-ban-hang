@@ -232,21 +232,32 @@ namespace DAL
                 using var tran = _context.Database.BeginTransaction();
                 try
                 {
-                    var bienThe = _context.BienTheSanPhams.FirstOrDefault(x => x.IdBienThe == idBienThe);
+                    var bienThe = _context.BienTheSanPhams
+                        .FirstOrDefault(x => x.IdBienThe == idBienThe);
+
                     if (bienThe == null) return false;
 
+                    // 👉 Lưu giá cũ TRƯỚC khi update
+                    var giaCu = bienThe.GiaBan;
+
+                    // 👉 Tạo mới lịch sử giá (KHÔNG update cái cũ)
                     var lichSu = new LichSuGia
                     {
                         MaLichSu = maLichSu,
                         IdBienThe = idBienThe,
-                        GiaCu = bienThe.GiaBan,
-                        GiaMoi = giaMoi
+                        GiaCu = giaCu,
+                        GiaMoi = giaMoi,
+                        NgayThayDoi = DateTime.Now // 🔥 bắt buộc phải có
                     };
+
                     _context.LichSuGias.Add(lichSu);
 
+                    // 👉 Update giá hiện tại
                     bienThe.GiaBan = giaMoi;
+
                     _context.SaveChanges();
                     tran.Commit();
+
                     return true;
                 }
                 catch
