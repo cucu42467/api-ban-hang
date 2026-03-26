@@ -57,6 +57,8 @@ builder.Services.AddScoped<IDanhMucBLL, DanhMucBLL>();
 builder.Services.AddScoped<IDanhMucDAL, DanhMucDAL>();
 builder.Services.AddScoped<ILichSuGiaBLL, LichSuGiaBLL>();
 builder.Services.AddScoped<ILichSuGiaDAL, LichSuGiaDAL>();
+builder.Services.AddScoped<ISanPhamFullDAL, SanPhamFullDAL>();
+builder.Services.AddScoped<ISanPhamFullBLL, SanPhamFullBLL>();
 
 var app = builder.Build();
 
