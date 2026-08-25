@@ -13,7 +13,7 @@ namespace DAL
             _context = context;
         }
 
-        // Lấy danh sách biến thể sản phẩm
+        // Lấy danh sách tất cả biến thể sản phẩm
         public List<BienTheSanPhamDTO> GetAll(string lang)
         {
             var data = (from bt in _context.BienTheSanPhams
